@@ -11,8 +11,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Diagram Builder",
-  description: "Create interactive diagrams with auto-layout and manual positioning",
-    generator: 'v0.app'
+  description: "Create interactive diagrams with auto-layout and manual positioning"
 }
 
 export default function RootLayout({
@@ -22,6 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} antialiased`}>
+      <link rel="icon" type="image/x-icon" href="https://jidef.github.io/favicon/favicon.ico"></link>
       <body>{children}</body>
     </html>
   )
