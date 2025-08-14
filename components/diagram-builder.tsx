@@ -252,7 +252,7 @@ export function DiagramBuilder() {
     {
       "from": "source-node-id",
       "to": "target-node-id",
-      "color": "#hex-color",
+      "color": "#hex-color (default: #cbcbcb)",
       "direction": "source | target | both | null",
       "dashed": false
     }
