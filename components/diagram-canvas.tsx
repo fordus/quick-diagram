@@ -102,7 +102,7 @@ const createArrowHead = (x: number, y: number, angle: number, size = 16) => {
   return `M ${x1} ${y1} L ${x} ${y} L ${x2} ${y2}`
 }
 
-const darkenColor = (color: string, amount = 0.2) => {
+const darkenColor = (color: string, amount = 0.1) => {
   const hex = color.replace("#", "")
   const r = Number.parseInt(hex.substr(0, 2), 16)
   const g = Number.parseInt(hex.substr(2, 2), 16)
@@ -272,7 +272,7 @@ export const DiagramCanvas = forwardRef<HTMLDivElement, DiagramCanvasProps>(
                   top: minY,
                   width: maxX - minX,
                   height: maxY - minY,
-                  backgroundColor: cluster.color || "#f1f5f9",
+                  backgroundColor: cluster.color || "#f1f5f9", // LABEL BORDER
                   zIndex: index,
                   borderStyle: cluster.dashedBorder ? "dashed" : "solid",
                   borderWidth: "4px",
@@ -286,7 +286,7 @@ export const DiagramCanvas = forwardRef<HTMLDivElement, DiagramCanvasProps>(
                     style={{
                       backgroundColor: "rgba(255, 255, 255, 0.95)",
                       color: "#1e293b",
-                      borderColor: cluster.color || "#cccccc",
+                      borderColor: cluster.color ? darkenColor(cluster.color || "#f1f5f9") : "#cccccc",
                       borderStyle: cluster.dashedBorder ? "dashed" : "solid",
                     }}
                   >
