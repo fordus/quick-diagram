@@ -465,11 +465,8 @@ Rules:
                   </svg>
                 </div>
                 <h1 className="text-sm font-semibold text-foreground">
-                  Quick Diagram
+                  jsonflow
                 </h1>
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                  v2
-                </span>
               </div>
 
               <div className="w-px h-5 bg-border" />
@@ -626,7 +623,7 @@ Rules:
                 className="gap-1.5 h-8 text-xs bg-foreground text-background hover:bg-foreground/90"
               >
                 <a
-                  href="https://github.com/fordus/quick-diagram"
+                  href="https://github.com/fordus/jsonflow"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -776,7 +773,7 @@ Rules:
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-foreground">
-                  Quick Diagram v2
+                  jsonflow
                 </h2>
                 <Button
                   variant="ghost"
@@ -861,12 +858,12 @@ Rules:
                 </div>
                 <div className="pt-2 border-t">
                   <a
-                    href="https://github.com/fordus/quick-diagram"
+                    href="https://github.com/fordus/jsonflow"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
                   >
-                    github.com/fordus/quick-diagram
+                    github.com/fordus/jsonflow
                   </a>
                 </div>
               </div>

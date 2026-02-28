@@ -1,8 +1,8 @@
-# Quick Diagram
+# jsonflow
 
-The fastest way to create beautiful diagrams — just describe what you want to any AI, get a JSON, and paste it in.
+Create diagrams instantly using only JSON. Describe what you need to any AI, get a JSON back, and paste it in — your diagram appears in seconds.
 
-Perfect for rapid documentation, architecture overviews, presentations, and anything where you need a clear visual in seconds.
+Perfect for rapid documentation, architecture overviews, presentations, and anything where you need a clear visual fast.
 
 ## How it works
 
@@ -66,8 +66,8 @@ No drag-and-drop marathon. No manual alignment. Just describe → generate → d
 ## Installation
 
 ```bash
-git clone https://github.com/fordus/quick-diagram.git
-cd quick-diagram
+git clone https://github.com/fordus/jsonflow.git
+cd jsonflow
 pnpm install
 pnpm dev
 ```
