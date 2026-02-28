@@ -91,12 +91,33 @@
 }
 
 /* React Flow custom styles */
+
+/* Remove default node wrapper border/background */
 .react-flow__node {
   cursor: pointer !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
 }
 
 .react-flow__node.selected {
   outline: none !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.react-flow__node:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Keep group node styles for clusters */
+.react-flow__node-group {
+  background: transparent !important;
+  border: none !important;
 }
 
 .react-flow__handle {
@@ -113,6 +134,11 @@
   stroke-linejoin: round;
 }
 
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #3b82f6 !important;
+  stroke-width: 3 !important;
+}
+
 .react-flow__controls button {
   background-color: var(--background) !important;
   border-color: var(--border) !important;
@@ -126,4 +152,9 @@
 .react-flow__minimap {
   border-radius: 8px !important;
   overflow: hidden;
+}
+
+/* Edge label styling */
+.react-flow__edge-textwrapper {
+  pointer-events: none;
 }

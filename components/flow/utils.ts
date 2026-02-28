@@ -11,7 +11,6 @@ export interface DiagramNodeData {
   image?: string
   cluster?: string
   tags?: string[]
-  // Visual overrides (set via click-to-edit, not JSON)
   borderColor?: string
   bgColor?: string
   dashedBorder?: boolean
@@ -38,13 +37,122 @@ export interface DiagramData {
   clusters?: DiagramCluster[]
 }
 
-const NODE_WIDTH = 220
-const NODE_HEIGHT = 80
-const DECISION_SIZE = 120
-const CIRCLE_SIZE = 90
-const H_SPACING = 280
-const V_SPACING = 140
-const CLUSTER_PADDING = 60
+// ---- Topological layered layout ----
+
+interface AdjList {
+  children: Set<string>
+  parents: Set<string>
+}
+
+function buildGraph(nodes: DiagramNodeData[], connections: DiagramConnection[]) {
+  const adj: Record<string, AdjList> = {}
+  const nodeIds = new Set(nodes.map((n) => n.id))
+  nodes.forEach((n) => {
+    adj[n.id] = { children: new Set(), parents: new Set() }
+  })
+  connections.forEach((c) => {
+    if (nodeIds.has(c.from) && nodeIds.has(c.to)) {
+      adj[c.from]?.children.add(c.to)
+      adj[c.to]?.parents.add(c.from)
+    }
+  })
+  return adj
+}
+
+function assignLayers(nodes: DiagramNodeData[], adj: Record<string, AdjList>): Record<string, number> {
+  const layers: Record<string, number> = {}
+  const visited = new Set<string>()
+  const queue: string[] = []
+
+  // Find roots (no parents)
+  nodes.forEach((n) => {
+    if (!adj[n.id] || adj[n.id].parents.size === 0) {
+      queue.push(n.id)
+      layers[n.id] = 0
+      visited.add(n.id)
+    }
+  })
+
+  // BFS to assign layers
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    const currentLayer = layers[current]
+    adj[current]?.children.forEach((child) => {
+      const proposedLayer = currentLayer + 1
+      if (!visited.has(child) || proposedLayer > layers[child]) {
+        layers[child] = proposedLayer
+        if (!visited.has(child)) {
+          visited.add(child)
+          queue.push(child)
+        }
+      }
+    })
+  }
+
+  // Assign unvisited (isolated) nodes
+  let maxLayer = Math.max(0, ...Object.values(layers))
+  nodes.forEach((n) => {
+    if (!visited.has(n.id)) {
+      layers[n.id] = maxLayer + 1
+      maxLayer += 1
+    }
+  })
+
+  return layers
+}
+
+// ---- Smart edge handle assignment ----
+
+interface HandleAssignment {
+  sourceHandle: string | undefined
+  targetHandle: string | undefined
+}
+
+function computeEdgeHandles(
+  sourcePos: { x: number; y: number },
+  targetPos: { x: number; y: number },
+  sourceType: string,
+  targetType: string,
+): HandleAssignment {
+  const dx = targetPos.x - sourcePos.x
+  const dy = targetPos.y - sourcePos.y
+  const absDx = Math.abs(dx)
+  const absDy = Math.abs(dy)
+
+  let sourceHandle: string | undefined
+  let targetHandle: string | undefined
+
+  // Prefer vertical flow (top-to-bottom)
+  if (absDy >= absDx * 0.4) {
+    if (dy > 0) {
+      // Target is below
+      sourceHandle = undefined // default bottom
+      targetHandle = undefined // default top
+    } else {
+      // Target is above
+      sourceHandle = undefined // bottom source -> top target reversed
+      targetHandle = undefined
+    }
+  }
+
+  // Horizontal preference when nodes are mostly side by side
+  if (absDx > absDy * 1.5) {
+    if (dx > 0) {
+      sourceHandle = "right-source"
+      targetHandle = "left-target"
+    } else {
+      sourceHandle = "left-source"
+      targetHandle = "right-target"
+    }
+  }
+
+  return { sourceHandle, targetHandle }
+}
+
+// ---- Spacing constants ----
+const H_SPACING = 300
+const V_SPACING = 180
+const CLUSTER_PADDING = 50
 
 export function convertToFlowElements(data: DiagramData): {
   nodes: Node[]
@@ -52,7 +160,7 @@ export function convertToFlowElements(data: DiagramData): {
 } {
   const { nodes: diagramNodes, connections, clusters = [] } = data
 
-  // Group nodes by cluster
+  // Group by cluster
   const clusterGroups: Record<string, DiagramNodeData[]> = {}
   const unclusteredNodes: DiagramNodeData[] = []
 
@@ -66,29 +174,87 @@ export function convertToFlowElements(data: DiagramData): {
   })
 
   const flowNodes: Node[] = []
-  let currentX = 80
-  let currentY = 80
 
-  // Place cluster group nodes
+  // ---- Layout unclustered nodes using topological layers ----
+  const adj = buildGraph(unclusteredNodes, connections)
+  const layers = assignLayers(unclusteredNodes, adj)
+
+  // Group nodes by layer
+  const layerMap: Record<number, DiagramNodeData[]> = {}
+  unclusteredNodes.forEach((n) => {
+    const l = layers[n.id] ?? 0
+    if (!layerMap[l]) layerMap[l] = []
+    layerMap[l].push(n)
+  })
+
+  const sortedLayers = Object.keys(layerMap)
+    .map(Number)
+    .sort((a, b) => a - b)
+
+  // Calculate cluster area offset (clusters go on the right side)
   const clusterEntries = Object.entries(clusterGroups)
-  clusterEntries.forEach(([clusterId, clusterNodes]) => {
-    const cluster = clusters.find((c) => c.id === clusterId)
-    const cols = Math.min(clusterNodes.length, Math.ceil(Math.sqrt(clusterNodes.length)))
+  let clusterTotalWidth = 0
 
-    // Calculate cluster bounds
+  // First pass: calculate cluster widths
+  const clusterDimensions: { width: number; height: number }[] = []
+  clusterEntries.forEach(([, clusterNodes]) => {
+    const cols = Math.min(clusterNodes.length, Math.max(2, Math.ceil(Math.sqrt(clusterNodes.length))))
     const rows = Math.ceil(clusterNodes.length / cols)
-    const clusterWidth = cols * H_SPACING + CLUSTER_PADDING * 2
-    const clusterHeight = rows * V_SPACING + CLUSTER_PADDING * 2 + 30 // +30 for cluster label
+    const w = cols * H_SPACING + CLUSTER_PADDING * 2
+    const h = rows * V_SPACING + CLUSTER_PADDING * 2 + 40
+    clusterDimensions.push({ width: w, height: h })
+    clusterTotalWidth = Math.max(clusterTotalWidth, w)
+  })
 
-    // Add cluster group node
+  // Place unclustered nodes in layers (left-to-right, top-to-bottom)
+  const nodePositions: Record<string, { x: number; y: number }> = {}
+  const startX = 80
+  const startY = 80
+
+  sortedLayers.forEach((layerIdx, layerOrder) => {
+    const nodesInLayer = layerMap[layerIdx]
+    const layerWidth = nodesInLayer.length * H_SPACING
+    const offsetX = startX + Math.max(0, (3 * H_SPACING - layerWidth) / 2) // Center layers
+
+    nodesInLayer.forEach((node, colIdx) => {
+      const x = offsetX + colIdx * H_SPACING
+      const y = startY + layerOrder * V_SPACING
+      nodePositions[node.id] = { x, y }
+
+      const nodeType = node.type || "process"
+      const config = NODE_TYPE_CONFIGS[nodeType as keyof typeof NODE_TYPE_CONFIGS]
+
+      flowNodes.push({
+        id: node.id,
+        type: nodeType,
+        position: { x, y },
+        data: {
+          ...node,
+          borderColor: node.borderColor || config?.borderColor,
+          bgColor: node.bgColor || config?.bgColor,
+        },
+      })
+    })
+  })
+
+  // ---- Place cluster groups on the right ----
+  let clusterX = startX + (sortedLayers.length > 0 ? Math.max(...sortedLayers.map((l) => (layerMap[l]?.length || 1))) * H_SPACING + 120 : 80)
+  let clusterY = startY
+
+  clusterEntries.forEach(([clusterId, clusterNodes], ci) => {
+    const cluster = clusters.find((c) => c.id === clusterId)
+    const { width: cWidth, height: cHeight } = clusterDimensions[ci]
+
+    const cols = Math.min(clusterNodes.length, Math.max(2, Math.ceil(Math.sqrt(clusterNodes.length))))
+
     flowNodes.push({
       id: `cluster-${clusterId}`,
       type: "group",
-      position: { x: currentX, y: currentY },
+      position: { x: clusterX, y: clusterY },
       style: {
-        width: clusterWidth,
-        height: clusterHeight,
-        backgroundColor: cluster?.color || "#f1f5f9",
+        width: cWidth,
+        height: cHeight,
+        backgroundColor: cluster?.color ? `${cluster.color}` : "#f1f5f9",
         borderRadius: "12px",
         border: `2px ${cluster?.dashedBorder ? "dashed" : "solid"} ${darkenColor(cluster?.color || "#f1f5f9", 0.15)}`,
         padding: "0",
@@ -99,19 +265,16 @@ export function convertToFlowElements(data: DiagramData): {
       },
     })
 
-    // Add child nodes relative to parent
     clusterNodes.forEach((node, index) => {
       const col = index % cols
       const row = Math.floor(index / cols)
       const nodeType = node.type || "process"
-      const isDecision = nodeType === "decision"
-      const isCircle = nodeType === "circle"
+      const config = NODE_TYPE_CONFIGS[nodeType as keyof typeof NODE_TYPE_CONFIGS]
 
-      const w = isCircle ? CIRCLE_SIZE : isDecision ? DECISION_SIZE : NODE_WIDTH
-      const h = isCircle ? CIRCLE_SIZE : isDecision ? DECISION_SIZE : NODE_HEIGHT
+      const x = CLUSTER_PADDING + col * H_SPACING
+      const y = CLUSTER_PADDING + 40 + row * V_SPACING
 
-      const x = CLUSTER_PADDING + col * H_SPACING + (H_SPACING - w) / 2
-      const y = CLUSTER_PADDING + 30 + row * V_SPACING + (V_SPACING - h) / 2
+      nodePositions[node.id] = { x: clusterX + x, y: clusterY + y }
 
       flowNodes.push({
         id: node.id,
@@ -121,87 +284,109 @@ export function convertToFlowElements(data: DiagramData): {
         extent: "parent" as const,
         data: {
           ...node,
-          borderColor: node.borderColor || NODE_TYPE_CONFIGS[nodeType]?.borderColor,
-          bgColor: node.bgColor || NODE_TYPE_CONFIGS[nodeType]?.bgColor,
+          borderColor: node.borderColor || config?.borderColor,
+          bgColor: node.bgColor || config?.bgColor,
         },
-        style: { width: w, height: h },
       })
     })
 
-    currentX += clusterWidth + 60
-    if (currentX > 1400) {
-      currentX = 80
-      currentY += rows * V_SPACING + CLUSTER_PADDING * 2 + 80
-    }
+    clusterY += cHeight + 40
   })
 
-  // Place unclustered nodes
-  if (unclusteredNodes.length > 0) {
-    const startY = clusterEntries.length > 0 ? currentY + 60 : currentY
-    let ux = 80
+  // ---- Convert connections to edges with smart handles ----
+  const edges: Edge[] = connections.map((conn, i) => {
+    const sourcePos = nodePositions[conn.from] || { x: 0, y: 0 }
+    const targetPos = nodePositions[conn.to] || { x: 0, y: 0 }
+    const sourceNode = diagramNodes.find((n) => n.id === conn.from)
+    const targetNode = diagramNodes.find((n) => n.id === conn.to)
 
-    unclusteredNodes.forEach((node, index) => {
-      const nodeType = node.type || "process"
-      const isDecision = nodeType === "decision"
-      const isCircle = nodeType === "circle"
+    const { sourceHandle, targetHandle } = computeEdgeHandles(
+      sourcePos,
+      targetPos,
+      sourceNode?.type || "process",
+      targetNode?.type || "process",
+    )
 
-      const w = isCircle ? CIRCLE_SIZE : isDecision ? DECISION_SIZE : NODE_WIDTH
-      const h = isCircle ? CIRCLE_SIZE : isDecision ? DECISION_SIZE : NODE_HEIGHT
-
-      flowNodes.push({
-        id: node.id,
-        type: nodeType,
-        position: {
-          x: ux + (index % 4) * H_SPACING,
-          y: startY + Math.floor(index / 4) * V_SPACING,
-        },
-        data: {
-          ...node,
-          borderColor: node.borderColor || NODE_TYPE_CONFIGS[nodeType]?.borderColor,
-          bgColor: node.bgColor || NODE_TYPE_CONFIGS[nodeType]?.bgColor,
-        },
-        style: { width: w, height: h },
-      })
-    })
-  }
-
-  // Convert connections to edges
-  const edges: Edge[] = connections.map((conn, i) => ({
-    id: `e-${conn.from}-${conn.to}-${i}`,
-    source: conn.from,
-    target: conn.to,
-    type: "smoothstep",
-    animated: conn.animated || false,
-    label: conn.label || undefined,
-    style: {
-      stroke: "#94a3b8",
-      strokeWidth: 2,
-      strokeDasharray: conn.dashed ? "6 3" : undefined,
-    },
-    markerEnd: {
-      type: "arrowclosed" as const,
-      color: "#94a3b8",
-      width: 20,
-      height: 20,
-    },
-    labelStyle: {
-      fontSize: 12,
-      fontWeight: 500,
-      fill: "#64748b",
-    },
-    labelBgStyle: {
-      fill: "#ffffff",
-      fillOpacity: 0.9,
-    },
-    labelBgPadding: [6, 4] as [number, number],
-    labelBgBorderRadius: 4,
-  }))
+    return {
+      id: `e-${conn.from}-${conn.to}-${i}`,
+      source: conn.from,
+      target: conn.to,
+      sourceHandle,
+      targetHandle,
+      type: "smoothstep",
+      animated: conn.animated || false,
+      label: conn.label || undefined,
+      style: {
+        stroke: "#94a3b8",
+        strokeWidth: 2,
+        strokeDasharray: conn.dashed ? "6 3" : undefined,
+      },
+      markerEnd: {
+        type: "arrowclosed" as const,
+        color: "#94a3b8",
+        width: 18,
+        height: 18,
+      },
+      labelStyle: {
+        fontSize: 11,
+        fontWeight: 500,
+        fill: "#64748b",
+      },
+      labelBgStyle: {
+        fill: "#ffffff",
+        fillOpacity: 0.95,
+      },
+      labelBgPadding: [8, 4] as [number, number],
+      labelBgBorderRadius: 4,
+    }
+  })
 
   return { nodes: flowNodes, edges }
 }
 
+/** Reconstruct DiagramData from current React Flow nodes and edges */
+export function flowToJson(
+  flowNodes: Node[],
+  flowEdges: Edge[],
+  existingData: DiagramData,
+): DiagramData {
+  const nodes: DiagramNodeData[] = flowNodes
+    .filter((n) => n.type !== "group")
+    .map((n) => {
+      const d = n.data as any
+      return {
+        id: n.id,
+        type: (d.type || n.type || "process") as DiagramNodeType,
+        label: (d.label as string) || n.id,
+        description: d.description as string | undefined,
+        icon: d.icon as string | undefined,
+        image: d.image as string | undefined,
+        cluster: d.cluster as string | undefined,
+        tags: d.tags as string[] | undefined,
+        borderColor: d.borderColor as string | undefined,
+        bgColor: d.bgColor as string | undefined,
+        dashedBorder: d.dashedBorder as boolean | undefined,
+      }
+    })
+
+  const connections: DiagramConnection[] = flowEdges.map((e) => ({
+    from: e.source,
+    to: e.target,
+    label: e.label as string | undefined,
+    animated: e.animated || false,
+    dashed: e.style?.strokeDasharray ? true : false,
+  }))
+
+  return {
+    nodes,
+    connections,
+    clusters: existingData.clusters || [],
+  }
+}
+
 export function darkenColor(color: string, amount = 0.15): string {
   const hex = color.replace("#", "")
+  if (hex.length < 6) return color
   const r = parseInt(hex.substring(0, 2), 16)
   const g = parseInt(hex.substring(2, 4), 16)
   const b = parseInt(hex.substring(4, 6), 16)
@@ -216,83 +401,81 @@ export function darkenColor(color: string, amount = 0.15): string {
 export const DEFAULT_EXAMPLE: DiagramData = {
   nodes: [
     {
-      id: "client",
+      id: "start",
       type: "input",
-      label: "Client App",
-      icon: "Monitor",
-      cluster: "frontend",
-      tags: ["React", "SPA"],
-    },
-    {
-      id: "auth-server",
-      type: "service",
-      label: "Auth Server",
-      icon: "Shield",
-      cluster: "auth",
-      tags: ["OAuth"],
-    },
-    {
-      id: "jwt-service",
-      type: "process",
-      label: "JWT Service",
-      icon: "Key",
-      cluster: "auth",
-      tags: ["Token"],
+      label: "User Request",
+      icon: "User",
+      description: "Client initiates the process",
+      tags: ["Start"],
     },
     {
       id: "api-gateway",
       type: "service",
       label: "API Gateway",
       icon: "Network",
-      cluster: "backend",
-      tags: ["REST"],
+      description: "Routes incoming requests",
+      tags: ["REST", "v2"],
+    },
+    {
+      id: "is-authorized",
+      type: "decision",
+      label: "Authorized?",
+    },
+    {
+      id: "auth-service",
+      type: "process",
+      label: "Auth Service",
+      icon: "Shield",
+      description: "Validates JWT tokens",
+      tags: ["OAuth", "JWT"],
     },
     {
       id: "user-service",
       type: "process",
       label: "User Service",
       icon: "Users",
-      cluster: "backend",
       tags: ["CRUD"],
-    },
-    {
-      id: "is-authorized",
-      type: "decision",
-      label: "Authorized?",
-      icon: "HelpCircle",
-      cluster: "backend",
     },
     {
       id: "database",
       type: "database",
       label: "PostgreSQL",
       icon: "Database",
-      cluster: "storage",
       tags: ["Primary"],
+      cluster: "storage",
     },
     {
-      id: "redis",
+      id: "cache",
       type: "database",
       label: "Redis Cache",
       icon: "Zap",
-      cluster: "storage",
       tags: ["Cache"],
+      cluster: "storage",
+    },
+    {
+      id: "response",
+      type: "output",
+      label: "API Response",
+      icon: "LogOut",
+      tags: ["JSON"],
+    },
+    {
+      id: "error-note",
+      type: "text",
+      label: "Returns 401 Unauthorized",
     },
   ],
   connections: [
-    { from: "client", to: "auth-server", label: "Login", dashed: true },
-    { from: "auth-server", to: "jwt-service" },
-    { from: "client", to: "api-gateway", label: "API Calls" },
+    { from: "start", to: "api-gateway", label: "HTTP Request" },
     { from: "api-gateway", to: "is-authorized" },
+    { from: "is-authorized", to: "auth-service", label: "No" },
     { from: "is-authorized", to: "user-service", label: "Yes" },
+    { from: "auth-service", to: "error-note" },
     { from: "user-service", to: "database" },
-    { from: "user-service", to: "redis" },
-    { from: "auth-server", to: "database", dashed: true },
+    { from: "user-service", to: "cache", dashed: true },
+    { from: "user-service", to: "response" },
   ],
   clusters: [
-    { id: "frontend", name: "Frontend Layer", color: "#dbeafe" },
-    { id: "auth", name: "Authentication", color: "#fef3c7", dashedBorder: true },
-    { id: "backend", name: "Backend Services", color: "#dcfce7" },
-    { id: "storage", name: "Data Layer", color: "#fce7f3" },
+    { id: "storage", name: "Data Layer", color: "#dbeafe" },
   ],
 }

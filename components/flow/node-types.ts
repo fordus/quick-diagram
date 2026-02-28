@@ -7,6 +7,7 @@ export type DiagramNodeType =
   | "input"
   | "output"
   | "circle"
+  | "text"
 
 export interface NodeTypeConfig {
   label: string
@@ -14,6 +15,7 @@ export interface NodeTypeConfig {
   bgColor: string
   iconBg: string
   defaultIcon: string
+  description: string
 }
 
 export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
@@ -23,6 +25,7 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     bgColor: "#ecfeff",
     iconBg: "#cffafe",
     defaultIcon: "Workflow",
+    description: "General process step",
   },
   decision: {
     label: "Decision",
@@ -30,6 +33,7 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     bgColor: "#fffbeb",
     iconBg: "#fef3c7",
     defaultIcon: "HelpCircle",
+    description: "Conditional branch",
   },
   database: {
     label: "Database",
@@ -37,6 +41,7 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     bgColor: "#eff6ff",
     iconBg: "#dbeafe",
     defaultIcon: "Database",
+    description: "Data storage",
   },
   service: {
     label: "Service",
@@ -44,6 +49,7 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     bgColor: "#f0fdf4",
     iconBg: "#dcfce7",
     defaultIcon: "Server",
+    description: "API / microservice",
   },
   pipeline: {
     label: "Pipeline",
@@ -51,6 +57,7 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     bgColor: "#fff7ed",
     iconBg: "#ffedd5",
     defaultIcon: "GitBranch",
+    description: "Transform / ETL",
   },
   input: {
     label: "Input",
@@ -58,6 +65,7 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     bgColor: "#faf5ff",
     iconBg: "#f3e8ff",
     defaultIcon: "LogIn",
+    description: "Data source",
   },
   output: {
     label: "Output",
@@ -65,6 +73,7 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     bgColor: "#f0fdfa",
     iconBg: "#ccfbf1",
     defaultIcon: "LogOut",
+    description: "Result / output",
   },
   circle: {
     label: "Circle",
@@ -72,6 +81,15 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     bgColor: "#f9fafb",
     iconBg: "#f3f4f6",
     defaultIcon: "Circle",
+    description: "External service",
+  },
+  text: {
+    label: "Text",
+    borderColor: "transparent",
+    bgColor: "transparent",
+    iconBg: "transparent",
+    defaultIcon: "FileText",
+    description: "Annotation label",
   },
 }
 
@@ -131,7 +149,6 @@ export const AVAILABLE_ICONS = [
   "FileCode",
   "GitCommit",
   "Boxes",
-  "Container",
 ] as const
 
 export type AvailableIcon = (typeof AVAILABLE_ICONS)[number]

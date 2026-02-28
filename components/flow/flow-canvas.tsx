@@ -1,19 +1,18 @@
 "use client"
 
-import { useCallback, useRef } from "react"
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
-  useNodesState,
-  useEdgesState,
-  addEdge,
   BackgroundVariant,
   type Connection,
   type Node,
   type Edge,
   type ReactFlowInstance,
+  type OnNodesChange,
+  type OnEdgesChange,
+  type EdgeMouseHandler,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { customNodeTypes } from "./custom-nodes"
@@ -21,12 +20,16 @@ import { customNodeTypes } from "./custom-nodes"
 interface FlowCanvasProps {
   nodes: Node[]
   edges: Edge[]
-  onNodesChange: ReturnType<typeof useNodesState>[2]
-  onEdgesChange: ReturnType<typeof useEdgesState>[2]
+  onNodesChange: OnNodesChange
+  onEdgesChange: OnEdgesChange
   onConnect: (connection: Connection) => void
   onNodeClick?: (event: React.MouseEvent, node: Node) => void
+  onEdgeClick?: EdgeMouseHandler
+  onEdgeContextMenu?: (event: React.MouseEvent, edge: Edge) => void
   showBackground: boolean
   onInit?: (instance: ReactFlowInstance) => void
+  onDrop?: (event: React.DragEvent) => void
+  onDragOver?: (event: React.DragEvent) => void
 }
 
 export function FlowCanvas({
@@ -36,8 +39,12 @@ export function FlowCanvas({
   onEdgesChange,
   onConnect,
   onNodeClick,
+  onEdgeClick,
+  onEdgeContextMenu,
   showBackground,
   onInit,
+  onDrop,
+  onDragOver,
 }: FlowCanvasProps) {
   return (
     <div className="w-full h-full">
@@ -48,7 +55,11 @@ export function FlowCanvas({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+        onEdgeContextMenu={onEdgeContextMenu}
         onInit={onInit}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
         nodeTypes={customNodeTypes}
         defaultEdgeOptions={{
           type: "smoothstep",
@@ -56,16 +67,17 @@ export function FlowCanvas({
           markerEnd: {
             type: "arrowclosed" as any,
             color: "#94a3b8",
-            width: 20,
-            height: 20,
+            width: 18,
+            height: 18,
           },
         }}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={{ padding: 0.3 }}
         minZoom={0.1}
         maxZoom={3}
         snapToGrid
         snapGrid={[15, 15]}
+        deleteKeyCode={["Backspace", "Delete"]}
         proOptions={{ hideAttribution: true }}
         className="bg-background"
       >
