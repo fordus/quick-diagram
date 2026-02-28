@@ -13,9 +13,31 @@ import {
   type OnNodesChange,
   type OnEdgesChange,
   type EdgeMouseHandler,
+  type NodeTypes,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { customNodeTypes } from "./custom-nodes"
+import { memo } from "react"
+
+// Cluster label component rendered on group nodes
+function ClusterLabel({ data }: { data: any }) {
+  const label = data?.label || ""
+  if (!label) return null
+  return (
+    <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+      <span className="absolute top-2.5 left-3.5 text-xs font-semibold text-slate-500 tracking-wide">
+        {label}
+      </span>
+    </div>
+  )
+}
+
+const ClusterLabelMemo = memo(ClusterLabel)
+
+const allNodeTypes: NodeTypes = {
+  ...customNodeTypes,
+  group: ClusterLabelMemo,
+} as unknown as NodeTypes
 
 interface FlowCanvasProps {
   nodes: Node[]
@@ -60,7 +82,7 @@ export function FlowCanvas({
         onInit={onInit}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        nodeTypes={customNodeTypes}
+        nodeTypes={allNodeTypes}
         defaultEdgeOptions={{
           type: "smoothstep",
           style: { stroke: "#94a3b8", strokeWidth: 2 },

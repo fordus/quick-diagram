@@ -6,7 +6,6 @@ export type DiagramNodeType =
   | "pipeline"
   | "input"
   | "output"
-  | "circle"
   | "text"
 
 export interface NodeTypeConfig {
@@ -32,7 +31,7 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     borderColor: "#fbbf24",
     bgColor: "#fffbeb",
     iconBg: "#fef3c7",
-    defaultIcon: "HelpCircle",
+    defaultIcon: "GitBranch",
     description: "Conditional branch",
   },
   database: {
@@ -56,7 +55,7 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     borderColor: "#f97316",
     bgColor: "#fff7ed",
     iconBg: "#ffedd5",
-    defaultIcon: "GitBranch",
+    defaultIcon: "GitCommit",
     description: "Transform / ETL",
   },
   input: {
@@ -75,17 +74,9 @@ export const NODE_TYPE_CONFIGS: Record<DiagramNodeType, NodeTypeConfig> = {
     defaultIcon: "LogOut",
     description: "Result / output",
   },
-  circle: {
-    label: "Circle",
-    borderColor: "#9ca3af",
-    bgColor: "#f9fafb",
-    iconBg: "#f3f4f6",
-    defaultIcon: "Circle",
-    description: "External service",
-  },
   text: {
     label: "Text",
-    borderColor: "transparent",
+    borderColor: "#94a3b8",
     bgColor: "transparent",
     iconBg: "transparent",
     defaultIcon: "FileText",
@@ -135,7 +126,6 @@ export const AVAILABLE_ICONS = [
   "GitBranch",
   "LogIn",
   "LogOut",
-  "Circle",
   "Network",
   "Layers",
   "Zap",
@@ -149,6 +139,12 @@ export const AVAILABLE_ICONS = [
   "FileCode",
   "GitCommit",
   "Boxes",
+  "ArrowLeftRight",
+  "Split",
+  "Merge",
+  "CheckCircle",
+  "AlertTriangle",
+  "Info",
 ] as const
 
 export type AvailableIcon = (typeof AVAILABLE_ICONS)[number]

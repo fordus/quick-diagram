@@ -73,7 +73,7 @@ function assignLayers(nodes: DiagramNodeData[], adj: Record<string, AdjList>): R
     }
   })
 
-  // BFS to assign layers
+  // BFS
   while (queue.length > 0) {
     const current = queue.shift()!
     const currentLayer = layers[current]
@@ -89,7 +89,7 @@ function assignLayers(nodes: DiagramNodeData[], adj: Record<string, AdjList>): R
     })
   }
 
-  // Assign unvisited (isolated) nodes
+  // Assign isolated nodes
   let maxLayer = Math.max(0, ...Object.values(layers))
   nodes.forEach((n) => {
     if (!visited.has(n.id)) {
@@ -111,48 +111,40 @@ interface HandleAssignment {
 function computeEdgeHandles(
   sourcePos: { x: number; y: number },
   targetPos: { x: number; y: number },
-  sourceType: string,
-  targetType: string,
 ): HandleAssignment {
   const dx = targetPos.x - sourcePos.x
   const dy = targetPos.y - sourcePos.y
   const absDx = Math.abs(dx)
   const absDy = Math.abs(dy)
 
-  let sourceHandle: string | undefined
-  let targetHandle: string | undefined
-
-  // Prefer vertical flow (top-to-bottom)
-  if (absDy >= absDx * 0.4) {
-    if (dy > 0) {
-      // Target is below
-      sourceHandle = undefined // default bottom
-      targetHandle = undefined // default top
-    } else {
-      // Target is above
-      sourceHandle = undefined // bottom source -> top target reversed
-      targetHandle = undefined
-    }
-  }
-
-  // Horizontal preference when nodes are mostly side by side
-  if (absDx > absDy * 1.5) {
+  // Mostly horizontal
+  if (absDx > absDy * 1.3) {
     if (dx > 0) {
-      sourceHandle = "right-source"
-      targetHandle = "left-target"
+      return { sourceHandle: "right-source", targetHandle: "left-target" }
     } else {
-      sourceHandle = "left-source"
-      targetHandle = "right-target"
+      return { sourceHandle: "left-source", targetHandle: "right-target" }
     }
   }
 
-  return { sourceHandle, targetHandle }
+  // Mostly vertical or diagonal-ish
+  if (dy > 0) {
+    return { sourceHandle: undefined, targetHandle: undefined } // bottom -> top (defaults)
+  } else {
+    // Target is above source - use top source isn't available, so use left/right
+    if (dx > 0) {
+      return { sourceHandle: "right-source", targetHandle: "left-target" }
+    } else if (dx < 0) {
+      return { sourceHandle: "left-source", targetHandle: "right-target" }
+    }
+    return { sourceHandle: undefined, targetHandle: undefined }
+  }
 }
 
-// ---- Spacing constants ----
-const H_SPACING = 300
-const V_SPACING = 180
-const CLUSTER_PADDING = 50
+// ---- Spacing ----
+const H_SPACING = 320
+const V_SPACING = 160
+const CLUSTER_PADDING = 40
+const CLUSTER_HEADER = 36
 
 export function convertToFlowElements(data: DiagramData): {
   nodes: Node[]
@@ -175,11 +167,10 @@ export function convertToFlowElements(data: DiagramData): {
 
   const flowNodes: Node[] = []
 
-  // ---- Layout unclustered nodes using topological layers ----
+  // ---- Layout unclustered nodes with topological layers ----
   const adj = buildGraph(unclusteredNodes, connections)
   const layers = assignLayers(unclusteredNodes, adj)
 
-  // Group nodes by layer
   const layerMap: Record<number, DiagramNodeData[]> = {}
   unclusteredNodes.forEach((n) => {
     const l = layers[n.id] ?? 0
@@ -191,30 +182,16 @@ export function convertToFlowElements(data: DiagramData): {
     .map(Number)
     .sort((a, b) => a - b)
 
-  // Calculate cluster area offset (clusters go on the right side)
-  const clusterEntries = Object.entries(clusterGroups)
-  let clusterTotalWidth = 0
-
-  // First pass: calculate cluster widths
-  const clusterDimensions: { width: number; height: number }[] = []
-  clusterEntries.forEach(([, clusterNodes]) => {
-    const cols = Math.min(clusterNodes.length, Math.max(2, Math.ceil(Math.sqrt(clusterNodes.length))))
-    const rows = Math.ceil(clusterNodes.length / cols)
-    const w = cols * H_SPACING + CLUSTER_PADDING * 2
-    const h = rows * V_SPACING + CLUSTER_PADDING * 2 + 40
-    clusterDimensions.push({ width: w, height: h })
-    clusterTotalWidth = Math.max(clusterTotalWidth, w)
-  })
-
-  // Place unclustered nodes in layers (left-to-right, top-to-bottom)
   const nodePositions: Record<string, { x: number; y: number }> = {}
   const startX = 80
   const startY = 80
 
   sortedLayers.forEach((layerIdx, layerOrder) => {
     const nodesInLayer = layerMap[layerIdx]
+    // Center each layer
     const layerWidth = nodesInLayer.length * H_SPACING
-    const offsetX = startX + Math.max(0, (3 * H_SPACING - layerWidth) / 2) // Center layers
+    const maxLayerWidth = Math.max(...sortedLayers.map((l) => (layerMap[l]?.length || 1))) * H_SPACING
+    const offsetX = startX + (maxLayerWidth - layerWidth) / 2
 
     nodesInLayer.forEach((node, colIdx) => {
       const x = offsetX + colIdx * H_SPACING
@@ -237,16 +214,22 @@ export function convertToFlowElements(data: DiagramData): {
     })
   })
 
-  // ---- Place cluster groups on the right ----
-  let clusterX = startX + (sortedLayers.length > 0 ? Math.max(...sortedLayers.map((l) => (layerMap[l]?.length || 1))) * H_SPACING + 120 : 80)
+  // ---- Place cluster groups ----
+  const unclusteredMaxX = Object.values(nodePositions).reduce((max, p) => Math.max(max, p.x), 0)
+  let clusterX = unclusteredNodes.length > 0 ? unclusteredMaxX + H_SPACING + 80 : startX
   let clusterY = startY
 
-  clusterEntries.forEach(([clusterId, clusterNodes], ci) => {
+  Object.entries(clusterGroups).forEach(([clusterId, clusterNodes]) => {
     const cluster = clusters.find((c) => c.id === clusterId)
-    const { width: cWidth, height: cHeight } = clusterDimensions[ci]
+    const clusterColor = cluster?.color || "#e2e8f0"
+    const borderColorDarker = darkenColor(clusterColor, 0.2)
 
     const cols = Math.min(clusterNodes.length, Math.max(2, Math.ceil(Math.sqrt(clusterNodes.length))))
+    const rows = Math.ceil(clusterNodes.length / cols)
+    const cWidth = cols * H_SPACING + CLUSTER_PADDING * 2
+    const cHeight = rows * V_SPACING + CLUSTER_PADDING * 2 + CLUSTER_HEADER
 
+    // Cluster group node
     flowNodes.push({
       id: `cluster-${clusterId}`,
       type: "group",
@@ -254,9 +237,9 @@ export function convertToFlowElements(data: DiagramData): {
       style: {
         width: cWidth,
         height: cHeight,
-        backgroundColor: cluster?.color ? `${cluster.color}` : "#f1f5f9",
-        borderRadius: "12px",
-        border: `2px ${cluster?.dashedBorder ? "dashed" : "solid"} ${darkenColor(cluster?.color || "#f1f5f9", 0.15)}`,
+        backgroundColor: `${clusterColor}80`,
+        borderRadius: "16px",
+        border: `2px ${cluster?.dashedBorder ? "dashed" : "solid"} ${borderColorDarker}`,
         padding: "0",
       },
       data: {
@@ -272,7 +255,7 @@ export function convertToFlowElements(data: DiagramData): {
       const config = NODE_TYPE_CONFIGS[nodeType as keyof typeof NODE_TYPE_CONFIGS]
 
       const x = CLUSTER_PADDING + col * H_SPACING
-      const y = CLUSTER_PADDING + 40 + row * V_SPACING
+      const y = CLUSTER_PADDING + CLUSTER_HEADER + row * V_SPACING
 
       nodePositions[node.id] = { x: clusterX + x, y: clusterY + y }
 
@@ -290,22 +273,15 @@ export function convertToFlowElements(data: DiagramData): {
       })
     })
 
-    clusterY += cHeight + 40
+    clusterY += cHeight + 60
   })
 
-  // ---- Convert connections to edges with smart handles ----
+  // ---- Convert connections to edges ----
   const edges: Edge[] = connections.map((conn, i) => {
     const sourcePos = nodePositions[conn.from] || { x: 0, y: 0 }
     const targetPos = nodePositions[conn.to] || { x: 0, y: 0 }
-    const sourceNode = diagramNodes.find((n) => n.id === conn.from)
-    const targetNode = diagramNodes.find((n) => n.id === conn.to)
 
-    const { sourceHandle, targetHandle } = computeEdgeHandles(
-      sourcePos,
-      targetPos,
-      sourceNode?.type || "process",
-      targetNode?.type || "process",
-    )
+    const { sourceHandle, targetHandle } = computeEdgeHandles(sourcePos, targetPos)
 
     return {
       id: `e-${conn.from}-${conn.to}-${i}`,
@@ -344,7 +320,7 @@ export function convertToFlowElements(data: DiagramData): {
   return { nodes: flowNodes, edges }
 }
 
-/** Reconstruct DiagramData from current React Flow nodes and edges */
+/** Reconstruct DiagramData from flow state */
 export function flowToJson(
   flowNodes: Node[],
   flowEdges: Edge[],
@@ -390,11 +366,9 @@ export function darkenColor(color: string, amount = 0.15): string {
   const r = parseInt(hex.substring(0, 2), 16)
   const g = parseInt(hex.substring(2, 4), 16)
   const b = parseInt(hex.substring(4, 6), 16)
-
   const dr = Math.max(0, Math.floor(r * (1 - amount)))
   const dg = Math.max(0, Math.floor(g * (1 - amount)))
   const db = Math.max(0, Math.floor(b * (1 - amount)))
-
   return `#${dr.toString(16).padStart(2, "0")}${dg.toString(16).padStart(2, "0")}${db.toString(16).padStart(2, "0")}`
 }
 
@@ -420,6 +394,8 @@ export const DEFAULT_EXAMPLE: DiagramData = {
       id: "is-authorized",
       type: "decision",
       label: "Authorized?",
+      icon: "GitBranch",
+      tags: ["Check"],
     },
     {
       id: "auth-service",
@@ -475,7 +451,5 @@ export const DEFAULT_EXAMPLE: DiagramData = {
     { from: "user-service", to: "cache", dashed: true },
     { from: "user-service", to: "response" },
   ],
-  clusters: [
-    { id: "storage", name: "Data Layer", color: "#dbeafe" },
-  ],
+  clusters: [{ id: "storage", name: "Data Layer", color: "#dbeafe" }],
 }
