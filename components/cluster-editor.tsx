@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { X } from "lucide-react"
-import type { DiagramCluster } from "./diagram-builder"
+import type { DiagramCluster } from "./flow/utils"
 
 interface ClusterEditorProps {
   cluster: DiagramCluster
@@ -39,30 +39,30 @@ export function ClusterEditor({ cluster, onUpdate, onClose }: ClusterEditorProps
 
   return (
     <Card className="w-80 shadow-lg">
-      <CardHeader className="border-b">
+      <CardHeader className="border-b py-3 px-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Edit Cluster</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
+          <CardTitle className="text-sm font-semibold">Edit Cluster</CardTitle>
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </CardHeader>
       <CardContent className="p-4 space-y-4">
         <div className="space-y-2">
-          <Label>Cluster Name</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter cluster name" />
+          <Label className="text-xs font-medium">Cluster Name</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter cluster name" className="h-8 text-sm" />
         </div>
 
         <div className="space-y-2">
-          <Label>Background Color</Label>
+          <Label className="text-xs font-medium">Background Color</Label>
           <div className="grid grid-cols-5 gap-2">
             {CLUSTER_COLORS.map((paletteColor) => (
               <button
                 key={paletteColor}
-                className="w-8 h-8 rounded border-2 hover:scale-110 transition-transform"
+                className="w-8 h-8 rounded-md border-2 hover:scale-110 transition-transform"
                 style={{
                   backgroundColor: paletteColor,
-                  borderColor: color === paletteColor ? "#000" : "transparent",
+                  borderColor: color === paletteColor ? "#1e293b" : "transparent",
                 }}
                 onClick={() => setColor(paletteColor)}
               />
@@ -71,22 +71,32 @@ export function ClusterEditor({ cluster, onUpdate, onClose }: ClusterEditorProps
         </div>
 
         <div className="space-y-2">
-          <Label>Border Style</Label>
+          <Label className="text-xs font-medium">Border Style</Label>
           <div className="flex gap-2">
-            <Button variant={!dashedBorder ? "default" : "outline"} size="sm" onClick={() => setDashedBorder(false)}>
+            <Button
+              variant={!dashedBorder ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDashedBorder(false)}
+              className="flex-1 h-8 text-xs"
+            >
               Solid
             </Button>
-            <Button variant={dashedBorder ? "default" : "outline"} size="sm" onClick={() => setDashedBorder(true)}>
+            <Button
+              variant={dashedBorder ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDashedBorder(true)}
+              className="flex-1 h-8 text-xs"
+            >
               Dashed
             </Button>
           </div>
         </div>
 
-        <div className="flex gap-2 pt-4">
-          <Button onClick={handleSave} className="flex-1">
-            Save Changes
+        <div className="flex gap-2 pt-2">
+          <Button onClick={handleSave} className="flex-1 h-9 text-sm">
+            Save
           </Button>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} className="h-9 text-sm">
             Cancel
           </Button>
         </div>

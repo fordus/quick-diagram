@@ -89,3 +89,41 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* React Flow custom styles */
+.react-flow__node {
+  cursor: pointer !important;
+}
+
+.react-flow__node.selected {
+  outline: none !important;
+}
+
+.react-flow__handle {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.react-flow__node:hover .react-flow__handle {
+  opacity: 1;
+}
+
+.react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.react-flow__controls button {
+  background-color: var(--background) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.react-flow__controls button:hover {
+  background-color: var(--muted) !important;
+}
+
+.react-flow__minimap {
+  border-radius: 8px !important;
+  overflow: hidden;
+}

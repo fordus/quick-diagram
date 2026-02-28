@@ -2,220 +2,132 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { X } from "lucide-react"
-import type { DiagramNode } from "./diagram-builder"
+import type { DiagramNodeData } from "./flow/utils"
+import { NODE_TYPE_CONFIGS } from "./flow/node-types"
 
 interface NodeEditorProps {
-  node: DiagramNode
-  onUpdate: (updates: Partial<DiagramNode>) => void
+  node: DiagramNodeData
+  onUpdate: (updates: Partial<DiagramNodeData>) => void
   onClose: () => void
 }
 
-const AVAILABLE_ICONS = [
-  "User",
-  "Users",
-  "Database",
-  "Server",
-  "Settings",
-  "Config",
-  "Document",
-  "Folder",
-  "Email",
-  "Phone",
-  "Calendar",
-  "Time",
-  "Home",
-  "Building",
-  "Cart",
-  "Payment",
-  "Delivery",
-  "Package",
-  "Chart",
-  "Analytics",
-  "Growth",
-  "Goal",
-  "Search",
-  "Filter",
-  "Code",
-  "Desktop",
-  "Mobile",
-  "Network",
-  "Cloud",
-  "Security",
-  "Favorite",
-  "Star",
-  "Flag",
-  "Notification",
-  "Message",
-  "Camera",
+const BORDER_COLORS = [
+  "#22d3ee",
+  "#fbbf24",
+  "#3b82f6",
+  "#22c55e",
+  "#f97316",
+  "#a855f7",
+  "#14b8a6",
+  "#9ca3af",
+  "#ef4444",
+  "#ec4899",
 ]
 
-const COLOR_PALETTE = [
-  "#1e293b",
-  "#dc2626",
-  "#ea580c",
-  "#ca8a04",
-  "#16a34a",
-  "#0891b2",
-  "#2563eb",
-  "#7c3aed",
-  "#c026d3",
-  "#be185d",
-]
-
-const PASTEL_COLORS = [
-  "#ffffff", // White (default)
-  "#fef2f2", // Red pastel
-  "#fff7ed", // Orange pastel
-  "#fefce8", // Yellow pastel
-  "#f0fdf4", // Green pastel
-  "#ecfeff", // Cyan pastel
-  "#eff6ff", // Blue pastel
-  "#f5f3ff", // Purple pastel
-  "#fdf2f8", // Pink pastel
-  "#f9fafb", // Gray pastel
+const BG_COLORS = [
+  "#ffffff",
+  "#ecfeff",
+  "#fffbeb",
+  "#eff6ff",
+  "#f0fdf4",
+  "#fff7ed",
+  "#faf5ff",
+  "#f0fdfa",
+  "#fef2f2",
+  "#fdf2f8",
 ]
 
 export function NodeEditor({ node, onUpdate, onClose }: NodeEditorProps) {
-  const [content, setContent] = useState(node.content || "")
-  const [icon, setIcon] = useState(node.icon || "")
-  const [color, setColor] = useState(node.color || "#1e293b")
-  const [backgroundColor, setBackgroundColor] = useState(node.backgroundColor || "#ffffff") // Added background color state
-  const [dashedBorder, setDashedBorder] = useState(node.dashedBorder || false) // Added dashed border state
-  const [imageUrl, setImageUrl] = useState(node.type === "image" ? node.content || "" : "")
-  const [nodeType, setNodeType] = useState(node.type || "text")
+  const config = NODE_TYPE_CONFIGS[node.type || "process"]
+  const [borderColor, setBorderColor] = useState(node.borderColor || config.borderColor)
+  const [bgColor, setBgColor] = useState(node.bgColor || config.bgColor)
+  const [dashedBorder, setDashedBorder] = useState(node.dashedBorder || false)
 
   const handleSave = () => {
-    const updates: Partial<DiagramNode> = {
-      content: nodeType === "image" ? imageUrl : content,
-      icon: nodeType === "text" && icon ? icon : undefined,
-      color: nodeType === "text" && icon ? color : undefined,
-      backgroundColor,
-      dashedBorder, // Added dashed border to updates
-      type: nodeType as "text" | "image",
-    }
-    onUpdate(updates)
+    onUpdate({ borderColor, bgColor, dashedBorder })
     onClose()
   }
 
-  const isCustomSVG = nodeType === "image" && imageUrl.trim().startsWith("<svg")
-
   return (
-    <Card className="w-80">
-      <CardHeader className="border-b">
+    <Card className="w-80 shadow-lg">
+      <CardHeader className="border-b py-3 px-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Edit Node</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
+          <div>
+            <CardTitle className="text-sm font-semibold">Edit Node</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {node.label} ({node.type})
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </CardHeader>
       <CardContent className="p-4 space-y-4">
         <div className="space-y-2">
-          <Label>Background Color</Label>
+          <Label className="text-xs font-medium">Border Color</Label>
           <div className="grid grid-cols-5 gap-2">
-            {PASTEL_COLORS.map((paletteColor) => (
+            {BORDER_COLORS.map((color) => (
               <button
-                key={paletteColor}
-                className="w-8 h-8 rounded border-2 hover:scale-110 transition-transform"
+                key={color}
+                className="w-8 h-8 rounded-md border-2 hover:scale-110 transition-transform"
                 style={{
-                  backgroundColor: paletteColor,
-                  borderColor: backgroundColor === paletteColor ? "#000" : "#ccc",
+                  backgroundColor: color,
+                  borderColor: borderColor === color ? "#1e293b" : "transparent",
                 }}
-                onClick={() => setBackgroundColor(paletteColor)}
+                onClick={() => setBorderColor(color)}
               />
             ))}
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label>Border Style</Label>
+          <Label className="text-xs font-medium">Background Color</Label>
+          <div className="grid grid-cols-5 gap-2">
+            {BG_COLORS.map((color) => (
+              <button
+                key={color}
+                className="w-8 h-8 rounded-md border-2 hover:scale-110 transition-transform"
+                style={{
+                  backgroundColor: color,
+                  borderColor: bgColor === color ? "#1e293b" : "#e2e8f0",
+                }}
+                onClick={() => setBgColor(color)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Border Style</Label>
           <div className="flex gap-2">
-            <Button variant={!dashedBorder ? "default" : "outline"} size="sm" onClick={() => setDashedBorder(false)}>
+            <Button
+              variant={!dashedBorder ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDashedBorder(false)}
+              className="flex-1 h-8 text-xs"
+            >
               Solid
             </Button>
-            <Button variant={dashedBorder ? "default" : "outline"} size="sm" onClick={() => setDashedBorder(true)}>
+            <Button
+              variant={dashedBorder ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDashedBorder(true)}
+              className="flex-1 h-8 text-xs"
+            >
               Dashed
             </Button>
           </div>
         </div>
 
-        {!isCustomSVG && (nodeType === "text" ? icon : true) && (
-          <div className="space-y-2">
-            <Label>Icon Color</Label>
-            <div className="grid grid-cols-5 gap-2">
-              {COLOR_PALETTE.map((paletteColor) => (
-                <button
-                  key={paletteColor}
-                  className="w-8 h-8 rounded border-2 hover:scale-110 transition-transform"
-                  style={{
-                    backgroundColor: paletteColor,
-                    borderColor: color === paletteColor ? "#000" : "transparent",
-                  }}
-                  onClick={() => setColor(paletteColor)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <Label>Type</Label>
-          <Select value={nodeType} onValueChange={setNodeType}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text">Text Node</SelectItem>
-              <SelectItem value="image">Image/SVG Node</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {nodeType === "text" ? (
-          <>
-            <div className="space-y-2">
-              <Label>Text Content</Label>
-              <Input value={content} onChange={(e) => setContent(e.target.value)} placeholder="Enter node text" />
-            </div>
-            <div className="space-y-2">
-              <Label>Icon (Optional)</Label>
-              <Select value={icon || "none"} onValueChange={(value) => setIcon(value === "none" ? "" : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="No Icon" />
-                </SelectTrigger>
-                <SelectContent className="max-h-48">
-                  <SelectItem value="none">No Icon</SelectItem>
-                  {AVAILABLE_ICONS.map((iconName) => (
-                    <SelectItem key={iconName} value={iconName}>
-                      {iconName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </>
-        ) : (
-          <div className="space-y-2">
-            <Label>Image URL or SVG HTML</Label>
-            <Input
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://example.com/image.png or <svg>...</svg>"
-            />
-            {isCustomSVG && <p className="text-xs text-muted-foreground">Custom SVGs keep their original colors</p>}
-          </div>
-        )}
-
-        <div className="flex gap-2 pt-4">
-          <Button onClick={handleSave} className="flex-1">
-            Save Changes
+        <div className="flex gap-2 pt-2">
+          <Button onClick={handleSave} className="flex-1 h-9 text-sm">
+            Save
           </Button>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} className="h-9 text-sm">
             Cancel
           </Button>
         </div>

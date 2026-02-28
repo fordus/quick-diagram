@@ -1,226 +1,173 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { DiagramCanvas } from "./diagram-canvas"
+import {
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  type Connection,
+  type Node,
+  type ReactFlowInstance,
+} from "@xyflow/react"
+import { toPng } from "html-to-image"
 import { JsonPanel } from "./json-panel"
 import { NodeEditor } from "./node-editor"
 import { ClusterEditor } from "./cluster-editor"
-import { Download, Github, HelpCircle, X } from "lucide-react"
-import html2canvas from "html2canvas"
+import { FlowCanvas } from "./flow/flow-canvas"
+import {
+  convertToFlowElements,
+  DEFAULT_EXAMPLE,
+  type DiagramData,
+  type DiagramNodeData,
+  type DiagramCluster,
+} from "./flow/utils"
+import {
+  Download,
+  Github,
+  HelpCircle,
+  X,
+  Grid3X3,
+  Maximize,
+  Copy,
+  PanelRightOpen,
+  PanelRightClose,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
-export interface DiagramNode {
-  id: string
-  content: string
-  type?: "text" | "image"
-  icon?: string
-  weight?: number
-  color?: string
-  cluster?: string
-  backgroundColor?: string
-  dashedBorder?: boolean // Added dashed border support for nodes
-}
-
-export interface DiagramConnection {
-  from: string
-  to: string
-  color?: string
-  direction?: "source" | "target" | "both" | null
-  dashed?: boolean
-}
-
-export interface DiagramCluster {
-  id: string
-  name: string
-  color?: string
-  dashedBorder?: boolean // Added dashed border support for clusters
-}
+export type { DiagramNodeData, DiagramCluster }
+export type { DiagramData }
 
 export function DiagramBuilder() {
-  const [nodes, setNodes] = useState<DiagramNode[]>([])
-  const [connections, setConnections] = useState<DiagramConnection[]>([])
-  const [clusters, setClusters] = useState<DiagramCluster[]>([])
+  const [diagramData, setDiagramData] = useState<DiagramData>(DEFAULT_EXAMPLE)
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState([])
+  const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState([])
   const [showJsonPanel, setShowJsonPanel] = useState(true)
+  const [showBackground, setShowBackground] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
   const [showHelpDialog, setShowHelpDialog] = useState(false)
-  const [editingNode, setEditingNode] = useState<DiagramNode | null>(null)
+  const [editingNode, setEditingNode] = useState<DiagramNodeData | null>(null)
   const [editingCluster, setEditingCluster] = useState<DiagramCluster | null>(null)
-  const [editMode, setEditMode] = useState(true) // Added edit mode state
-  const canvasRef = useRef<HTMLDivElement>(null)
+  const flowInstance = useRef<ReactFlowInstance | null>(null)
   const { toast } = useToast()
 
+  // Convert diagram data to React Flow elements
   useEffect(() => {
-    const initialData = {
-      nodes: [
-        {
-          id: "client",
-          content: `<svg viewBox="0 0 256 308" width="256" height="308" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid"><path d="M239.682 40.707C211.113-.182 154.69-12.301 113.895 13.69L42.247 59.356a82.198 82.198 0 0 0-37.135 55.056 86.566 86.566 0 0 0 8.536 55.576 82.425 82.425 0 0 0-12.296 30.719 87.596 87.596 0 0 0 14.964 66.244c28.574 40.893 84.997 53.007 125.787 27.016l71.648-45.664a82.182 82.182 0 0 0 37.135-55.057 86.601 86.601 0 0 0-8.53-55.577 82.409 82.409 0 0 0 12.29-30.718 87.573 87.573 0 0 0-14.963-66.244" fill="#FF3E00"/><path d="M106.889 270.841c-23.102 6.007-47.497-3.036-61.103-22.648a52.685 52.685 0 0 1-9.003-39.85 49.978 49.978 0 0 1 1.713-6.693l1.35-4.115 3.671 2.697a92.447 92.447 0 0 0 28.036 14.007l2.663.808-.245 2.659a16.067 16.067 0 0 0 2.89 10.656 17.143 17.143 0 0 0 18.397 6.828 15.786 15.786 0 0 0 4.403-1.935l71.67-45.672a14.922 14.922 0 0 0 6.734-9.977 15.923 15.923 0 0 0-2.713-12.011 17.156 17.156 0 0 0-18.404-6.832 15.78 15.78 0 0 0-4.396 1.933l-27.35 17.434a52.298 52.298 0 0 1-14.553 6.391c-23.101 6.007-47.497-3.036-61.101-22.649a52.681 52.681 0 0 1-9.004-39.849 49.428 49.428 0 0 1 22.34-33.114l71.664-45.677a52.218 52.218 0 0 1 14.563-6.398c23.101-6.007 47.497 3.036 61.101 22.648a52.685 52.685 0 0 1 9.004 39.85 50.559 50.559 0 0 1-1.713 6.692l-1.35 4.116-3.67-2.693a92.373 92.373 0 0 0-28.037-14.013l-2.664-.809.246-2.658a16.099 16.099 0 0 0-2.89-10.656 17.143 17.143 0 0 0-18.398-6.828 15.786 15.786 0 0 0-4.402 1.935l-71.67 45.674a14.898 14.898 0 0 0-6.73 9.975 15.9 15.9 0 0 0 2.709 12.012 17.156 17.156 0 0 0 18.404 6.832 15.841 15.841 0 0 0 4.402-1.935l27.345-17.427a52.147 52.147 0 0 1 14.552-6.397c23.101-6.006 47.497 3.037 61.102 22.65a52.681 52.681 0 0 1 9.003 39.848 49.453 49.453 0 0 1-22.34 33.12l-71.664 45.673a52.218 52.218 0 0 1-14.563 6.398" fill="#FFF"/></svg>`,
-          type: "image",
-          cluster: "frontend",
-          backgroundColor: "#ffffff",
-          dashedBorder: false,
-        },
-        {
-          id: "auth-server",
-          content: "Auth Server",
-          icon: "Users",
-          color: "#dc2626",
-          cluster: "auth",
-          backgroundColor: "#fefce8",
-          dashedBorder: false,
-        },
-        {
-          id: "jwt-service",
-          content: "JWT Service",
-          icon: "Settings",
-          color: "#f59e0b",
-          cluster: "auth",
-          backgroundColor: "#fefce8",
-          dashedBorder: false,
-        },
-        {
-          id: "api-gateway",
-          content: "API Gateway",
-          icon: "Network",
-          color: "#8b5cf6",
-          cluster: "backend",
-          backgroundColor: "#ffffff",
-          dashedBorder: false,
-        },
-        {
-          id: "user-service",
-          content: "User Service",
-          icon: "Users",
-          color: "#10b981",
-          cluster: "backend",
-          backgroundColor: "#ffffff",
-          dashedBorder: false,
-        },
-        {
-          id: "database",
-          content: "Database",
-          icon: "Database",
-          color: "#06b6d4",
-          cluster: "backend",
-          backgroundColor: "#ffffff",
-          dashedBorder: false,
-        },
-        {
-          id: "redis",
-          content: "Redis Cache",
-          icon: "Server",
-          color: "#ef4444",
-          cluster: "backend",
-          backgroundColor: "#ffffff",
-          dashedBorder: false,
-        },
-      ],
-      connections: [
-        { from: "client", to: "auth-server", color: "#cbcbcb", direction: null, dashed: true },
-        { from: "auth-server", to: "jwt-service", color: "#cbcbcb", direction: null, dashed: false },
-        { from: "jwt-service", to: "auth-server", color: "#cbcbcb", direction: null, dashed: false },
-        { from: "client", to: "api-gateway", color: "#cbcbcb", direction: null, dashed: false },
-        { from: "api-gateway", to: "user-service", color: "#cbcbcb", direction: null, dashed: false },
-        { from: "user-service", to: "database", color: "#cbcbcb", direction: null, dashed: false },
-        { from: "user-service", to: "redis", color: "#cbcbcb", direction: null, dashed: false },
-        { from: "auth-server", to: "database", color: "#cbcbcb", direction: null, dashed: false },
-      ],
-      clusters: [
-        {
-          id: "frontend",
-          name: "Frontend Layer",
-          color: "#dbeafe",
-          dashedBorder: false,
-        },
-        {
-          id: "auth",
-          name: "Authentication Layer",
-          color: "#fef3c7",
-          dashedBorder: true,
-        },
-        {
-          id: "backend",
-          name: "Backend",
-          color: "#dcfce7",
-          dashedBorder: false,
-        },
-      ],
-    }
+    const { nodes, edges } = convertToFlowElements(diagramData)
+    setFlowNodes(nodes)
+    setFlowEdges(edges)
+  }, [diagramData, setFlowNodes, setFlowEdges])
 
-    setNodes(initialData.nodes)
-    setConnections(initialData.connections)
-    setClusters(initialData.clusters)
-  }, [])
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      setFlowEdges((eds) =>
+        addEdge(
+          {
+            ...connection,
+            type: "smoothstep",
+            style: { stroke: "#94a3b8", strokeWidth: 2 },
+            markerEnd: {
+              type: "arrowclosed" as any,
+              color: "#94a3b8",
+              width: 20,
+              height: 20,
+            },
+          },
+          eds,
+        ),
+      )
+    },
+    [setFlowEdges],
+  )
 
   const handleImport = useCallback(
-    (data: { nodes?: DiagramNode[]; connections?: DiagramConnection[]; clusters?: DiagramCluster[] }) => {
-      if (data.nodes) setNodes(data.nodes)
-      if (data.connections) setConnections(data.connections)
-      if (data.clusters) setClusters(data.clusters)
+    (data: DiagramData) => {
+      setDiagramData(data)
       toast({
-        title: "Success",
-        description: "Diagram imported successfully",
+        title: "Imported",
+        description: "Diagram loaded successfully",
       })
+      // Fit view after import
+      setTimeout(() => {
+        flowInstance.current?.fitView({ padding: 0.2 })
+      }, 200)
     },
     [toast],
   )
 
   const handleNodeClick = useCallback(
-    (node: DiagramNode) => {
-      if (editMode) {
-        setEditingNode(node)
+    (_event: React.MouseEvent, node: Node) => {
+      // Skip cluster group nodes
+      if (node.type === "group") {
+        const clusterData = (node.data as any)?.clusterData as DiagramCluster | undefined
+        if (clusterData) {
+          setEditingCluster(clusterData)
+        }
+        return
+      }
+
+      const nodeData = node.data as DiagramNodeData
+      if (nodeData) {
+        setEditingNode(nodeData)
       }
     },
-    [editMode],
+    [],
   )
 
-  const handleClusterClick = useCallback(
-    (cluster: DiagramCluster) => {
-      if (editMode) {
-        setEditingCluster(cluster)
-      }
+  const handleNodeUpdate = useCallback(
+    (nodeId: string, updates: Partial<DiagramNodeData>) => {
+      setDiagramData((prev) => ({
+        ...prev,
+        nodes: prev.nodes.map((n) => (n.id === nodeId ? { ...n, ...updates } : n)),
+      }))
     },
-    [editMode],
+    [],
   )
 
-  const handleNodeUpdate = useCallback((nodeId: string, updates: Partial<DiagramNode>) => {
-    setNodes((prev) => prev.map((node) => (node.id === nodeId ? { ...node, ...updates } : node)))
-  }, [])
-
-  const handleClusterUpdate = useCallback((clusterId: string, updates: Partial<DiagramCluster>) => {
-    setClusters((prev) => prev.map((cluster) => (cluster.id === clusterId ? { ...cluster, ...updates } : cluster)))
-  }, [])
+  const handleClusterUpdate = useCallback(
+    (clusterId: string, updates: Partial<DiagramCluster>) => {
+      setDiagramData((prev) => ({
+        ...prev,
+        clusters: (prev.clusters || []).map((c) =>
+          c.id === clusterId ? { ...c, ...updates } : c,
+        ),
+      }))
+    },
+    [],
+  )
 
   const exportDiagram = useCallback(async () => {
-    if (!canvasRef.current) return
-
     setIsExporting(true)
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      const viewport = document.querySelector(".react-flow__viewport") as HTMLElement
+      if (!viewport) throw new Error("No viewport found")
 
-      const canvas = await html2canvas(canvasRef.current, {
+      const dataUrl = await toPng(viewport, {
         backgroundColor: "#ffffff",
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        width: canvasRef.current.scrollWidth,
-        height: canvasRef.current.scrollHeight,
+        pixelRatio: 2,
+        filter: (node) => {
+          // Exclude controls and minimap from export
+          const classList = (node as HTMLElement)?.classList
+          if (!classList) return true
+          return (
+            !classList.contains("react-flow__controls") &&
+            !classList.contains("react-flow__minimap") &&
+            !classList.contains("react-flow__background")
+          )
+        },
       })
 
       const link = document.createElement("a")
       link.download = `diagram-${new Date().toISOString().slice(0, 10)}.png`
-      link.href = canvas.toDataURL("image/png")
-
+      link.href = dataUrl
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
 
       toast({
-        title: "Success",
-        description: "Diagram exported as PNG successfully",
+        title: "Exported",
+        description: "Diagram saved as PNG",
       })
     } catch (error) {
       console.error("Export failed:", error)
@@ -238,156 +185,201 @@ export function DiagramBuilder() {
     const schema = `{
   "nodes": [
     {
-      "id": "unique-node-id",
-      "content": "Node Text or SVG HTML",
-      "type": "text | image",
-      "icon": "Lucide icon name (User, Users, Database, Server, Shield, Settings, Network, Monitor, Phone, Email, Calendar, Building, Home, Cart, Package, Chart, Analytics, Growth, Goal, Search, Filter, Code, Desktop, Mobile, Camera, Star, Heart, Flag, Bell, Message, Config, Cloud, Security, Delivery, Payment, Folder, Document)",
-      "color": "#hex-color (for built-in icons only)",
-      "cluster": "cluster-id",
-      "backgroundColor": "#hex-color (default: #ffffff)",
-      "dashedBorder": false
+      "id": "unique-id",
+      "type": "process | decision | database | service | pipeline | input | output | circle",
+      "label": "Node Title",
+      "description": "Optional description text",
+      "icon": "Lucide icon name (see list below)",
+      "image": "https://url-to-image.png (optional, replaces icon)",
+      "cluster": "cluster-id (optional)",
+      "tags": ["Tag1", "Tag2"]
     }
   ],
   "connections": [
     {
       "from": "source-node-id",
       "to": "target-node-id",
-      "color": "#hex-color (default: #cbcbcb)",
-      "direction": "source | target | both | null",
+      "label": "optional edge label",
+      "animated": false,
       "dashed": false
     }
   ],
   "clusters": [
     {
       "id": "cluster-id",
-      "name": "Cluster Display Name",
-      "color": "#hex-color",
-      "dashedBorder": false
+      "name": "Cluster Display Name"
     }
   ]
 }
 
-Available Icons: User, Users, Database, Server, Shield, Settings, Network, Monitor, Phone, Email, Calendar, Building, Home, Cart, Package, Chart, Analytics, Growth, Goal, Search, Filter, Code, Desktop, Mobile, Camera, Star, Heart, Flag, Bell, Message, Config, Cloud, Security, Delivery, Payment, Folder, Document
+Node Types:
+- process: General process step (cyan border)
+- decision: Diamond-shaped conditional branching (amber border)
+- database: Data storage (blue border)
+- service: Microservice/API (green border)
+- pipeline: Data pipeline/transform (orange border)
+- input: Data source input (purple border)
+- output: Result/output (teal border)
+- circle: External service with logo (gray border)
 
-Color Options: Node backgrounds support any hex color. Built-in icons can be colored. Custom SVGs keep original colors. Node borders automatically darken based on background color.
+Available Icons: User, Users, Database, Server, Settings, Cog, FileText, Folder, Mail, Phone, Calendar, Clock, Home, Building, ShoppingCart, CreditCard, Truck, Package, BarChart, PieChart, TrendingUp, Target, Search, Filter, Code, Monitor, Smartphone, Wifi, Cloud, Shield, Heart, Star, Flag, Bell, MessageCircle, Camera, Workflow, HelpCircle, GitBranch, LogIn, LogOut, Circle, Network, Layers, Zap, Globe, Lock, Key, Activity, Cpu, HardDrive, Terminal, FileCode, GitCommit, Boxes
 
-Border Options:
-- "dashedBorder": true/false for both nodes and clusters
-- Node and cluster borders are 4px thick and match edge thickness
-- Border color automatically darkens based on background color
-
-Direction Options: 
-- "source": Arrow at start of connection
-- "target": Arrow at end of connection  
-- "both": Arrows at both ends
-- null: No arrows
-
-For custom SVGs, you can visit https://svgl.app/ as a helpful resource for finding SVG icons. Paste the SVG code in the content field with type: "image".`
+Colors are automatically assigned per node type. Edge connections use smoothstep routing with arrow markers.`
 
     navigator.clipboard
       .writeText(schema)
       .then(() => {
-        toast({
-          title: "Success",
-          description: "Schema copied to clipboard",
-        })
+        toast({ title: "Copied", description: "Schema copied to clipboard" })
       })
       .catch(() => {
         toast({
           title: "Error",
-          description: "Failed to copy schema to clipboard",
+          description: "Failed to copy",
           variant: "destructive",
         })
       })
   }, [toast])
 
+  const handleFitView = useCallback(() => {
+    flowInstance.current?.fitView({ padding: 0.2 })
+  }, [])
+
   return (
     <div className="flex h-full bg-background">
       {/* Main Canvas Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Toolbar */}
-        <div className="border-b border-border p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <svg className="h-6 w-6" fill="none" stroke="#1e293b" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
-              <h1 className="text-xl font-semibold">Quick Diagram v1</h1>
+        <header className="border-b border-border bg-background/95 backdrop-blur-sm z-10">
+          <div className="flex items-center justify-between px-4 py-2.5">
+            {/* Left: Logo */}
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center justify-center w-7 h-7 rounded-md bg-foreground">
+                <svg className="h-4 w-4" fill="none" stroke="white" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+              </div>
+              <h1 className="text-base font-semibold text-foreground">Quick Diagram</h1>
+              <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground">v2</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Button onClick={() => setEditMode(!editMode)} variant={editMode ? "default" : "outline"} size="sm">
-                {editMode ? "Edit Mode" : "View Mode"}
+
+            {/* Center: Canvas controls */}
+            <div className="flex items-center gap-1.5">
+              <Button
+                onClick={() => setShowBackground(!showBackground)}
+                variant={showBackground ? "secondary" : "outline"}
+                size="sm"
+                className="gap-1.5 h-8 text-xs"
+                title="Toggle background dots"
+              >
+                <Grid3X3 className="h-3.5 w-3.5" />
+                Grid
               </Button>
-              <Button onClick={copySchema} variant="outline" size="sm" className="gap-2 bg-transparent">
-                📋 Copy Schema
+              <Button
+                onClick={handleFitView}
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-8 text-xs"
+                title="Fit diagram to view"
+              >
+                <Maximize className="h-3.5 w-3.5" />
+                Fit
               </Button>
-              <Button onClick={() => setShowHelpDialog(true)} variant="outline" size="sm" className="gap-2">
-                <HelpCircle className="h-4 w-4" />
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-1.5">
+              <Button
+                onClick={copySchema}
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-8 text-xs"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Copy Schema
+              </Button>
+              <Button
+                onClick={() => setShowHelpDialog(true)}
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
               </Button>
               <Button
                 asChild
                 size="sm"
-                className="gap-2 text-white hover:bg-gray-700"
-                style={{ backgroundColor: "#1e293b" }}
+                className="gap-1.5 h-8 text-xs bg-foreground text-background hover:bg-foreground/90"
               >
                 <a
                   href="https://github.com/fordus"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2"
                 >
-                  <Github className="h-4 w-4" />
-                  Tristan
+                  <Github className="h-3.5 w-3.5" />
+                  GitHub
                 </a>
               </Button>
-              <Button onClick={() => setShowJsonPanel(!showJsonPanel)} variant="outline" size="sm">
-                {showJsonPanel ? "Hide JSON" : "Show JSON"}
+              <Button
+                onClick={() => setShowJsonPanel(!showJsonPanel)}
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title={showJsonPanel ? "Hide JSON panel" : "Show JSON panel"}
+              >
+                {showJsonPanel ? (
+                  <PanelRightClose className="h-3.5 w-3.5" />
+                ) : (
+                  <PanelRightOpen className="h-3.5 w-3.5" />
+                )}
               </Button>
               <Button
                 onClick={exportDiagram}
                 variant="outline"
                 size="sm"
-                className="gap-2 bg-transparent"
+                className="gap-1.5 h-8 text-xs"
                 disabled={isExporting}
               >
-                <Download className="h-4 w-4" />
-                {isExporting ? "Exporting..." : "Export PNG"}
+                <Download className="h-3.5 w-3.5" />
+                {isExporting ? "..." : "PNG"}
               </Button>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Canvas */}
-        <div className="flex-1 relative overflow-hidden">
-          <DiagramCanvas
-            ref={canvasRef}
-            nodes={nodes}
-            connections={connections}
-            clusters={clusters}
+        <div className="flex-1 relative">
+          <FlowCanvas
+            nodes={flowNodes}
+            edges={flowEdges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
             onNodeClick={handleNodeClick}
-            onClusterClick={handleClusterClick}
+            showBackground={showBackground}
+            onInit={(instance) => {
+              flowInstance.current = instance
+            }}
           />
         </div>
       </div>
 
       {/* JSON Panel */}
       {showJsonPanel && (
-        <Card className="w-96 border-l border-border rounded-none">
+        <Card className="w-96 border-l border-border rounded-none flex-shrink-0">
           <JsonPanel
-            nodes={nodes}
-            connections={connections}
-            clusters={clusters}
+            diagramData={diagramData}
             onImport={handleImport}
             onClose={() => setShowJsonPanel(false)}
           />
         </Card>
       )}
 
+      {/* Node Editor Modal */}
       {editingNode && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <NodeEditor
@@ -398,6 +390,7 @@ For custom SVGs, you can visit https://svgl.app/ as a helpful resource for findi
         </div>
       )}
 
+      {/* Cluster Editor Modal */}
       {editingCluster && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <ClusterEditor
@@ -411,126 +404,61 @@ For custom SVGs, you can visit https://svgl.app/ as a helpful resource for findi
       {/* Help Dialog */}
       {showHelpDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-[500px] max-h-[80vh] overflow-y-auto">
+          <Card className="w-[520px] max-h-[80vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Quick Guide - JSON Diagram Builder</h2>
+                <h2 className="text-lg font-semibold text-foreground">Quick Diagram v2 - Guide</h2>
                 <Button variant="ghost" size="sm" onClick={() => setShowHelpDialog(false)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="space-y-4 text-sm">
+              <div className="space-y-4 text-sm text-foreground">
                 <div>
-                  <h3 className="font-medium mb-2">📝 JSON Structure</h3>
-                  <p>
-                    Everything is controlled from the JSON panel. Toggle Edit Mode to click nodes and clusters to edit
-                    them directly. Use the "Copy Schema" button to get the complete JSON structure for AI models.
+                  <h3 className="font-medium mb-2">JSON-Driven Diagrams</h3>
+                  <p className="text-muted-foreground">
+                    Define your diagram structure in JSON with nodes, connections, and optional clusters.
+                    Click "Copy Schema" to get the full JSON specification for AI generation.
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-medium mb-2">🤖 AI Generation</h3>
-                  <p>
-                    Click "Copy Schema" to get the complete JSON structure. You can then ask AI models like ChatGPT,
-                    Claude, or others to generate diagrams following this schema.
-                  </p>
-                  <p className="mt-1 text-xs bg-gray-100 p-2 rounded">
-                    Example prompt: "Generate a JSON diagram for a microservices architecture using the schema I
-                    provided"
+                  <h3 className="font-medium mb-2">AI Generation</h3>
+                  <p className="text-muted-foreground">
+                    Copy the schema and paste it into any AI model (ChatGPT, Claude, etc.) with a prompt
+                    like: "Generate a JSON diagram for a microservices architecture using this schema."
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-medium mb-2">🎯 Nodes</h3>
-                  <p>
-                    <code>id</code>: Unique identifier
-                  </p>
-                  <p>
-                    <code>content</code>: Node text or image URL/SVG
-                  </p>
-                  <p>
-                    <code>type</code>: "text" or "image"
-                  </p>
-                  <p>
-                    <code>icon</code>: Icon name (User, Database, etc.) - leave empty for no icon
-                  </p>
-                  <p>
-                    <code>color</code>: Icon color (#hex) - only applies to built-in icons
-                  </p>
-                  <p>
-                    <code>cluster</code>: Cluster ID it belongs to
-                  </p>
-                  <p>
-                    <code>backgroundColor</code>: Node background color (#hex) - default white
-                  </p>
-                  <p>
-                    <code>dashedBorder</code>: Dashed border style (true/false) - default false
+                  <h3 className="font-medium mb-2">Node Types</h3>
+                  <div className="grid grid-cols-2 gap-1 text-muted-foreground">
+                    <span><strong className="text-foreground">process</strong> - General step</span>
+                    <span><strong className="text-foreground">decision</strong> - Conditional (diamond)</span>
+                    <span><strong className="text-foreground">database</strong> - Data storage</span>
+                    <span><strong className="text-foreground">service</strong> - API/microservice</span>
+                    <span><strong className="text-foreground">pipeline</strong> - Transform/ETL</span>
+                    <span><strong className="text-foreground">input</strong> - Data source</span>
+                    <span><strong className="text-foreground">output</strong> - Result/output</span>
+                    <span><strong className="text-foreground">circle</strong> - External service</span>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-medium mb-2">Editing</h3>
+                  <p className="text-muted-foreground">
+                    Click any node or cluster to change its colors and border style.
+                    Drag nodes to reposition. Use the grid toggle for clean screenshots.
+                    Connect nodes by dragging from handles.
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-medium mb-2">🔗 Connections</h3>
-                  <p>
-                    <code>from</code>: Source node ID
-                  </p>
-                  <p>
-                    <code>to</code>: Target node ID
-                  </p>
-                  <p>
-                    <code>color</code>: Edge color (#hex)
-                  </p>
-                  <p>
-                    <code>direction</code>: Arrow direction - "source", "target", "both", or null
-                  </p>
-                  <p>
-                    <code>dashed</code>: Make connection dashed (true/false) - default false
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium mb-2">🎨 Clusters</h3>
-                  <p>
-                    <code>id</code>: Cluster identifier
-                  </p>
-                  <p>
-                    <code>name</code>: Visible name
-                  </p>
-                  <p>
-                    <code>color</code>: Background color (#hex)
-                  </p>
-                  <p>
-                    <code>dashedBorder</code>: Dashed border style (true/false) - default false
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium mb-2">🎨 SVG Resources</h3>
-                  <p>
-                    For custom SVG icons, you can visit{" "}
-                    <a
-                      href="https://svgl.app/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      https://svgl.app/
-                    </a>{" "}
-                    as a helpful resource for finding SVG icons.
-                  </p>
-                  <p>
-                    Copy the SVG code and paste it in the image field when editing nodes. Custom SVGs keep their
-                    original colors.
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium mb-2">⚡ Features</h3>
-                  <p>• Toggle Edit Mode to click nodes and clusters for editing</p>
-                  <p>• Support for SVG HTML content in image nodes</p>
-                  <p>• Dashed borders for both nodes and clusters</p>
-                  <p>• Background color selection with automatic border darkening</p>
-                  <p>• Auto-layout with smart positioning</p>
-                  <p>• Straight horizontal/vertical connections with separation</p>
-                  <p>• Color-coded cluster regions</p>
-                  <p>• Mouse navigation: drag to pan, scroll to zoom</p>
-                </div>
-                <div>
-                  <h3 className="font-medium mb-2">💡 Example</h3>
-                  <p>Use the "JWT Example" button in the JSON panel to see a complete example.</p>
+                  <h3 className="font-medium mb-2">Features</h3>
+                  <ul className="text-muted-foreground space-y-0.5">
+                    <li>Smooth-step edge routing with arrow markers</li>
+                    <li>Drag-and-drop node repositioning</li>
+                    <li>Auto-layout on JSON import</li>
+                    <li>Toggle dot grid background for clean exports</li>
+                    <li>Interactive connections between nodes</li>
+                    <li>Tags and descriptions on nodes</li>
+                    <li>Decision nodes for conditional flows</li>
+                  </ul>
                 </div>
               </div>
             </div>

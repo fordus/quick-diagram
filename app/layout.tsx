@@ -10,8 +10,12 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Diagram Builder",
-  description: "Create interactive diagrams with auto-layout and manual positioning"
+  title: "Quick Diagram v2 - JSON-Driven Diagramming",
+  description: "Create interactive diagrams from JSON with AI generation support. Powered by React Flow.",
+}
+
+export const viewport = {
+  themeColor: "#1e293b",
 }
 
 export default function RootLayout({
