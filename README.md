@@ -1,78 +1,85 @@
-# Quick Diagram 🚀
+# Quick Diagram
 
-Quick Diagram is a web-based application for creating and editing diagrams with ease. 🎨
+The fastest way to create beautiful diagrams — just describe what you want to any AI, get a JSON, and paste it in.
 
-## Features ✨
+Perfect for rapid documentation, architecture overviews, presentations, and anything where you need a clear visual in seconds.
 
-- Diagram builder and canvas for creating custom diagrams. 🖼️
-- Node editor and panel for managing diagram components. 🛠️
-- UI components for enhanced user experience. 🖌️
-- Theme provider for consistent styling. 🎨
+## How it works
 
-## Installation 🛠️
+1. Click **Schema** to copy the JSON spec to your clipboard
+2. Paste it into any AI (Claude, ChatGPT, etc.) and describe the diagram you need
+3. Copy the generated JSON and import it — your diagram appears instantly
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/fordus/quick-diagram.git
-   cd quick-diagram
-   ```
+No drag-and-drop marathon. No manual alignment. Just describe → generate → done.
 
-2. Install dependencies:
-   ```bash
-   pnpm install
-   ```
+## Features
 
-3. Start the development server:
-   ```bash
-   pnpm dev
-   ```
+- **JSON-driven** — define your entire diagram as a clean JSON structure
+- **8 node types** — process, decision, database, service, pipeline, input, output, and text
+- **Clusters** — group related nodes into labeled sections
+- **Auto-layout** — topological algorithm arranges nodes in logical layers automatically
+- **Live sync** — edit visually or via JSON; both stay in sync
+- **50+ icons** — Lucide icon library built in, assignable per node
+- **Custom styling** — border colors, background colors, dashed borders per node
+- **Animated edges** — connections can be animated or dashed
+- **Export as PNG** — download your diagram as an image
+- **Dark / light theme** — works in both
 
-## Project Structure 🗂️
+## JSON Schema
 
+```json
+{
+  "nodes": [
+    {
+      "id": "string",
+      "type": "process | decision | database | service | pipeline | input | output | text",
+      "label": "string",
+      "description": "string (optional)",
+      "icon": "lucide-icon-name (optional)",
+      "cluster": "cluster-id (optional)",
+      "tags": ["string"],
+      "borderColor": "#hex (optional)",
+      "bgColor": "#hex (optional)",
+      "dashedBorder": false
+    }
+  ],
+  "connections": [
+    {
+      "from": "node-id",
+      "to": "node-id",
+      "label": "string (optional)",
+      "animated": false,
+      "dashed": false
+    }
+  ],
+  "clusters": [
+    {
+      "id": "string",
+      "name": "string",
+      "color": "#hex (optional)",
+      "dashedBorder": false
+    }
+  ]
+}
 ```
-app/
-  globals.css
-  layout.tsx
-  page.tsx
-components/
-  cluster-editor.tsx
-  diagram-builder.tsx
-  ...
-hooks/
-  use-mobile.ts
-  use-toast.ts
-lib/
-  utils.ts
-public/
-  placeholder-logo.png
-  ...
-styles/
-  globals.css
+
+## Installation
+
+```bash
+git clone https://github.com/fordus/quick-diagram.git
+cd quick-diagram
+pnpm install
+pnpm dev
 ```
 
-## Usage 💻
+## Tech stack
 
-1. Open the application in your browser. 🌐
-2. Use the diagram builder to create and edit diagrams. 🖋️
-3. Customize nodes and themes as needed. 🎨
+- Next.js 16 + React 19 + TypeScript
+- React Flow — canvas and node rendering
+- Tailwind CSS + Radix UI
+- Lucide icons
+- html-to-image — PNG export
 
-## Contributing 🤝
+## License
 
-1. Fork the repository. 🍴
-2. Create a new branch for your feature:
-   ```bash
-   git checkout -b feature-name
-   ```
-3. Commit your changes:
-   ```bash
-   git commit -m "Add feature"
-   ```
-4. Push to your branch:
-   ```bash
-   git push origin feature-name
-   ```
-5. Open a pull request. 🔄
-
-## License 📜
-
-This project is licensed under the MIT License.
+MIT
