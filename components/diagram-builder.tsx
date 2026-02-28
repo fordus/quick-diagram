@@ -50,8 +50,8 @@ let nodeCounter = 100
 
 export function DiagramBuilder() {
   const [diagramData, setDiagramData] = useState<DiagramData>(DEFAULT_EXAMPLE)
-  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState([])
-  const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState([])
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<Node>([])
+  const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [showJsonPanel, setShowJsonPanel] = useState(true)
   const [showBackground, setShowBackground] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
@@ -227,19 +227,25 @@ export function DiagramBuilder() {
       setFlowNodes((nds) =>
         nds.map((n) => {
           if (n.id !== `cluster-${clusterId}`) return n
-          const clusterColor =
-            updates.color || (n.data as any)?.clusterData?.color || "#e2e8f0"
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const nd = n as any
+          const clusterColor = updates.color || nd.data?.clusterData?.color || "#e2e8f0"
+          const dashedBorder = updates.dashedBorder !== undefined
+            ? updates.dashedBorder
+            : nd.data?.clusterData?.dashedBorder
           return {
-            ...n,
+            ...nd,
             data: {
-              ...n.data,
-              label: updates.name || (n.data as any)?.label,
-              clusterData: { ...(n.data as any)?.clusterData, ...updates },
+              ...nd.data,
+              label: updates.name || nd.data?.label,
+              clusterData: { ...nd.data?.clusterData, ...updates },
+              bgColor: `${clusterColor}80`,
+              borderColor: darkenColor(clusterColor, 0.2),
+              dashedBorder,
             },
             style: {
-              ...n.style,
-              backgroundColor: `${clusterColor}80`,
-              border: `2px ${updates.dashedBorder !== undefined ? (updates.dashedBorder ? "dashed" : "solid") : ((n.data as any)?.clusterData?.dashedBorder ? "dashed" : "solid")} ${darkenColor(clusterColor, 0.2)}`,
+              width: nd.style?.width,
+              height: nd.style?.height,
             },
           }
         }),

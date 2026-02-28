@@ -237,14 +237,13 @@ export function convertToFlowElements(data: DiagramData): {
       style: {
         width: cWidth,
         height: cHeight,
-        backgroundColor: `${clusterColor}80`,
-        borderRadius: "16px",
-        border: `2px ${cluster?.dashedBorder ? "dashed" : "solid"} ${borderColorDarker}`,
-        padding: "0",
       },
       data: {
         label: cluster?.name || clusterId,
         clusterData: cluster,
+        bgColor: `${clusterColor}80`,
+        borderColor: borderColorDarker,
+        dashedBorder: cluster?.dashedBorder,
       },
     })
 

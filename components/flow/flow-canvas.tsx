@@ -22,12 +22,25 @@ import { memo } from "react"
 // Cluster label component rendered on group nodes
 function ClusterLabel({ data }: { data: any }) {
   const label = data?.label || ""
-  if (!label) return null
+  const bgColor = data?.bgColor as string | undefined
+  const borderColor = data?.borderColor as string | undefined
+  const dashedBorder = data?.dashedBorder as boolean | undefined
+
   return (
-    <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-      <span className="absolute top-2.5 left-3.5 text-xs font-semibold text-slate-500 tracking-wide">
-        {label}
-      </span>
+    <div
+      className="absolute inset-0 rounded-2xl pointer-events-none"
+      style={{
+        backgroundColor: bgColor,
+        border: borderColor
+          ? `2px ${dashedBorder ? "dashed" : "solid"} ${borderColor}`
+          : undefined,
+      }}
+    >
+      {label && (
+        <span className="absolute top-2.5 left-3.5 text-xs font-semibold text-slate-500 tracking-wide">
+          {label}
+        </span>
+      )}
     </div>
   )
 }
