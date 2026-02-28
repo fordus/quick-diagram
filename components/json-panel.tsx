@@ -78,6 +78,9 @@ export function JsonPanel({ diagramData, onImport, onClose }: JsonPanelProps) {
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
+        <p className="text-[11px] text-muted-foreground leading-relaxed mt-1.5">
+          Copy the <strong>Schema</strong> button above, paste it into any AI with a description of your diagram, then import the generated JSON here.
+        </p>
       </CardHeader>
       <CardContent className="p-4 space-y-3 flex-1 overflow-y-auto min-h-0">
         <div className="flex gap-2">

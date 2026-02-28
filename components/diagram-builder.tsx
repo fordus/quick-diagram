@@ -48,10 +48,12 @@ export type { DiagramData }
 
 let nodeCounter = 100
 
+const { nodes: INITIAL_NODES, edges: INITIAL_EDGES } = convertToFlowElements(DEFAULT_EXAMPLE)
+
 export function DiagramBuilder() {
   const [diagramData, setDiagramData] = useState<DiagramData>(DEFAULT_EXAMPLE)
-  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<Node>([])
-  const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<Node>(INITIAL_NODES)
+  const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>(INITIAL_EDGES)
   const [showJsonPanel, setShowJsonPanel] = useState(true)
   const [showBackground, setShowBackground] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
@@ -629,6 +631,7 @@ Rules:
                   rel="noopener noreferrer"
                 >
                   <Github className="h-3.5 w-3.5" />
+                  Star on GitHub
                 </a>
               </Button>
               <Button
@@ -717,7 +720,7 @@ Rules:
 
       {/* JSON Panel */}
       {showJsonPanel && (
-        <Card className="w-96 border-l border-border rounded-none flex-shrink-0">
+        <Card className="w-[480px] border-l border-border rounded-none flex-shrink-0">
           <JsonPanel
             diagramData={diagramData}
             onImport={handleImport}
